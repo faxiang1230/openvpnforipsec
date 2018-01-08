@@ -57,4 +57,34 @@ default         10.0.0.1        0.0.0.0         UG    100    0        0 enp0s3
 128.0.0.0       10.8.0.5        128.0.0.0       UG    0      0        0 tun0
 link-local      *               255.255.0.0     U     1000   0        0 enp0s3
 ```
+ifconfig
+```
+linux@linux-VirtualBox:~/source/easy-rsa/easy-rsa/2.0/keys$ ifconfig
+enp0s3    Link encap:Ethernet  HWaddr 08:00:27:fb:f4:db  
+          inet addr:10.0.0.7  Bcast:10.0.0.255  Mask:255.255.255.0
+          inet6 addr: fe80::1423:1482:cf38:6ef0/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:55149 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:29552 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:79855135 (79.8 MB)  TX bytes:2488723 (2.4 MB)
+
+lo        Link encap:Local Loopback  
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:65536  Metric:1
+          RX packets:1081 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:1081 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:135993 (135.9 KB)  TX bytes:135993 (135.9 KB)
+
+tun0      Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  
+          inet addr:10.8.0.6  P-t-P:10.8.0.5  Mask:255.255.255.255
+          inet6 addr: fe80::4004:aa6f:e106:2d2/64 Scope:Link
+          UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:1500  Metric:1
+          RX packets:2593 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:3339 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:100 
+          RX bytes:1596082 (1.5 MB)  TX bytes:445667 (445.6 KB)
+```
 it looks like that route to tun device and then encrypt,send it via physical net devices
