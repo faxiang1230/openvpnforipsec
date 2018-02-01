@@ -1,16 +1,21 @@
 CC:=gcc
 CFLAGS:=-g
 LDFLAGS:=-lpthread
-COMMON_FILES=log.c debugger.c
+COMMON_FILES=log.c debugger.c protocol.c
 
-all:client server
+all:client-d server-d example-c example-s
 
-client:client.c $(COMMON_FILES)
+client-d:client-daemon.c $(COMMON_FILES)
 	$(CC) $^ -o $@ $(LDFLAGS) $(CFLAGS)
 
-server:server.c $(COMMON_FILES)
+server-d:server-daemon.c $(COMMON_FILES)
 	$(CC) $^ -o $@ $(LDFLAGS) $(CFLAGS)
 
-.distclean:clean
+example-c:client-example.c
+	$(CC) $^ -o $@ $(LDFLAGS) $(CFLAGS)
+example-s:server-example.c
+	$(CC) $^ -o $@ $(LDFLAGS) $(CFLAGS)
+
+.PHONY:clean
 clean:
-	rm client server *.o
+	rm -rf client-d server-d example-c example-s *.o

@@ -6,6 +6,9 @@
 
 #define DEBUG 1
 
+/* When I read tun data,always '00 00 08 00' ahead of IP packet */
+#define TUN_HEAD 4
+
 #define DISPATCH_NO_PACKET 0
 #define DISPATCH_USER_PACKET 1
 #define DISPATCH_ESP_PACKET 2
