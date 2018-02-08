@@ -2,17 +2,47 @@
 #define IPSECEXAMPLE_PROTOCOL_H
 #include <inttypes.h>
 
-#define TUNNEL_MODE 1
+//#define DEBUG_PACKET 1
 
+/*
+ * Protocol info prepended to the packets (when IFF_NO_PI is not set)
+ * struct tun_pi {
+ *	__u16  flags;
+ *	__be16 proto;
+ * };
+ * Don't prepend PI,so don't define USE_PI
+ */
+#ifdef USE_PI
+/* When I read tun data,always '00 00 08 00' ahead of IP packet */
+/* When set TUN_NO_PI flag,no prepend data */
+#define TUN_HEAD 4
+#else
+#define TUN_HEAD 0
+#endif
+
+/* encapsulate mode */
+#define TUNNEL_MODE 1
+//#define TRANSPORT_MODE 1
+
+
+/* 
+ * obsolete 
+ * client daemon receive 2 kinds of packet:from application
+ * without ESP capsulation,from server with ESP capsulation
+ */
 #define USERDATA 1
 #define ESPDATA 2
 
+/* 8bit protocol value,see /etc/protocols */
 #define PROTO_TCP 6
 #define PROTO_UDP 17
 #define PROTO_ESP 50
 
+/* IP header 4bit protocol value */
 #define IPV4_VERSION 4
 #define IPV6_VERSION 6
+
+#define CRYPT_SEED 0xaa
 typedef uint8_t u8_t;
 typedef uint16_t u16_t;
 
@@ -85,6 +115,9 @@ int verifypacket(void *header);
 int isESP(void *header);
 int encapsulate_esp(void *header, int len);
 void *decapsulate_esp(void *header);
-void show_udpip(void *);
+void dump_udp(void *);
+unsigned short cal_cksum(unsigned short* head, int len);
+int encrypt(void *addr, int len);
+int decrypt(void *addr, int len);
 
 #endif //IPSECEXAMPLE_PROTOCOL_H

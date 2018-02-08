@@ -31,49 +31,39 @@ int chksum(unsigned short *addr, int type) {
 		else
 			return -1;
 	}
-	return 0;
+	return -1;
 }
-int verifyip(void *addr) {
-	struct uip_udpip_hdr *hdr = addr;
+int verify_ip(void *addr) {
+	struct ip_hdr *hdr = addr;
 	/* Now only accept IPV4 */
-	if((hdr->vhl >> 4) != IPV4_VERSION)
-		return -1;
-	if(chksum(addr, IPV4_VERSION)) {
-		dbglog("ip packet chksum failed\n");
+	if((hdr->vhl >> 4) != IPV4_VERSION) {
+		printf("Not support ipv6\n");
 		return -1;
 	}
+	if(chksum(addr, IPV4_VERSION)) {
+		printf("ip packet chksum failed\n");
+		return -1;
+	}
+	return 0;
 }
-int verifyudp(void *iphdr) {
+int verify_udp(void *iphdr) {
 	struct uip_udpip_hdr *hdr = iphdr;
-	unsigned int sum = 0,len,num;
+	unsigned int sum = 0,len, num;
 	struct pseudo_udphdr f;
 	unsigned short *addr = NULL;
-#if 0
-	f.srcipaddr[0] = (unsigned short)htons(hdr->srcipaddr[0]);
-	f.srcipaddr[1] = (unsigned short)htons(hdr->srcipaddr[1]);
-	f.destipaddr[0] = (unsigned short)htons(hdr->destipaddr[0]);
-	f.destipaddr[1] = (unsigned short)htons(hdr->destipaddr[1]);
-#endif
-	memcpy(&f,&hdr->srcipaddr, 8);
+
+	memcpy(&f, &hdr->srcipaddr, 8);
 	f.pad = 0;
-	f.proto = 17;
-#if 0
-	f.udplen = (unsigned short)htons(hdr->udplen);
-#endif
-	memcpy(&f.udplen, &hdr->udplen, 2);
+	f.proto = PROTO_UDP;
+
+	memcpy(&f.udplen, &hdr->udplen, sizeof(u16_t));
+
 	len = sizeof(struct pseudo_udphdr);
-	addr = &f;
-	#if 0
-	dbglog("dummpy udphdr length:%d\n", len);
-    for(num = 0; num < len; num++) {
-        dbglog("%02x ", ((unsigned char *)addr)[num]);
-    }   
-	dbglog("\n");
-	#endif
-	while(len > 0) {
-		sum += htons((unsigned short)((*addr)));
+	addr = (unsigned short *)&f;
+
+	while (len > 0) {
+		sum += *addr;
 		addr++;
-	//	dbglog("%02x ", sum);
 		len -= 2;
 	}
 	dbglog("\n");
@@ -81,46 +71,63 @@ int verifyudp(void *iphdr) {
 	unsigned short chksum = (unsigned short)hdr->udpchksum;
 	hdr->udpchksum = 0;
 	addr = iphdr + ((hdr->vhl & 0xf) * 4); 
-	len = (unsigned short)htons(hdr->udplen);
-#if 0
-	dbglog("udp header and data:%p-%p:%d \n", iphdr, addr, len);
-    for(num = 0; num < len; num++) {
-        dbglog("%02x ", htons(addr[num]));
-    }   
-	dbglog("\n");
-	dbglog("last sum:%02x\n", sum);
-#endif
+	len = ntohs(hdr->udplen);
 	while(len > 1) {
-	//	dbglog("data:%02x\n", (unsigned short)(htons(*addr)));
-		sum += (unsigned short)(htons(*addr));
+		sum += *addr;
 		addr++;
-	//	dbglog("sum:%02x \n", sum);
 		len -= 2;
 	}
 	if (len) {
-		//dbglog("%x\n", htons((*(unsigned char*)addr)));
-		sum += htons((*(unsigned char*)addr)); 
+		sum += *(unsigned char*)addr; 
 	}
-	//dbglog("\n");
-	if(sum > 65535)
+	while (sum >> 16)
 		sum = (sum >> 16) + (sum & 0xffff);
-	//dbglog("the last:%02x \n", sum);
 	hdr->udpchksum = chksum;
-	dbglog("%04x %04x\n",htons(hdr->udpchksum), (unsigned short)~sum);
-	if(htons(hdr->udpchksum) == ((unsigned short)~sum))
+	dbglog("verify_udp chksum %04x %04x\n",hdr->udpchksum, (unsigned short)~sum);
+	if(hdr->udpchksum == ((unsigned short)~sum))
 		return 0;
 	return -1;
 }
-void show_udpip(void *addr) {
-	int ret = verifyip(addr);
-	if (ret == -1)
-		return; 
-	ret = verifyudp(addr);
-	if (ret == -1) {
-		dbglog("udp chksum failed\n");
+void dump_udp(void *addr) {
+	if (verify_ip(addr))
 		return;
-	}
+
+	if (verify_udp(addr));
+		return;
+
 	struct uip_udpip_hdr *hdr = addr;
-	dbglog("IP header info:\nversion:%u header length:%u packet length:%u\n",\
+	printf("IP header info:\nversion:%u header length:%u packet length:%u\n",\
 	(hdr->vhl >> 4), (hdr->vhl & 0xf),((hdr->len[0] << 8) + hdr->len[1]));
+}
+unsigned short cal_cksum(unsigned short* head, int len) {
+	unsigned int sum = 0;
+	while(len > 1) {
+		sum += *head++;
+		len -= 2;
+	}
+	if (len) {
+		sum += *(unsigned char *)head;
+	}
+
+	while (sum >> 16) {
+		sum = (sum >> 16) + (sum & 0xffff);
+	}
+
+	return (unsigned short)(~sum);
+}
+int encrypt(void *addr, int len) {
+	int num = 0;
+	for ( ; num < len; num++) {
+		*(unsigned char *)addr ^= CRYPT_SEED;
+		addr++;
+	}
+	return len;
+}
+int decrypt(void *addr, int len) {
+	int num = 0;
+	for ( ; num < len; num++) {
+		*(unsigned char *)addr ^= CRYPT_SEED;
+		addr++;
+	}
+	return len;
 }

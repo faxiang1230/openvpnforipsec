@@ -40,7 +40,7 @@ int main() {
 		if (ret > 0)
 			printf("send to client:%s\n", r_data);
 		else {
-			printf("send data to %s:%d failed,error:%s\n", inet_ntoa(client.sin_addr.s_addr),\
+			printf("send data to %d:%u failed,error:%s\n", inet_ntoa(client.sin_addr),
 			 client.sin_port, strerror(errno));
 		}
 //		sleep(1);

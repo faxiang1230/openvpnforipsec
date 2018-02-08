@@ -3,21 +3,23 @@
 #include "list.h"
 #include "log.h"
 #include <pthread.h>
+#include "protocol.h"
 
 #define DEBUG 1
 
-/* When I read tun data,always '00 00 08 00' ahead of IP packet */
-#define TUN_HEAD 4
+#define TUN_PATH "/dev/net/tun"
+#define SERVER_IP "10.0.0.161"
 
 #define DISPATCH_NO_PACKET 0
 #define DISPATCH_USER_PACKET 1
 #define DISPATCH_ESP_PACKET 2
 
-
+#define DEF_INTERVAL_SEC 5
+#define DEF_INTERVAL_MSEC 0
 struct rcvpacket {
 	struct list_head head;
 	void *packet;
-#if DEBUG
+#if DEBUG_PACKET
 	size_t len;
 #endif
 };
@@ -38,7 +40,7 @@ static LIST_HEAD(tun);
 static LIST_HEAD(user_data_list);
 static LIST_HEAD(ipsec_data_list);
 
-static int tunfd = 0,sockfd =0;
+static int tunfd = 0,sockfd =0, recsockfd = 0;
 
 int tun_alloc(char *device);
 static void *readtun(void *arg __attribute__((unused)));

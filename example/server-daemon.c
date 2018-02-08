@@ -15,8 +15,12 @@
 #include "log.h"
 #include "protocol.h"
 
+#define DEBUG 0
+
 #define DEF_INTERVAL 5
 #define TUN_DEV "/dev/net/tun"
+
+int sockfd = 0;
 
 int tun_alloc() {
 	struct ifreq ifr;
@@ -29,7 +33,7 @@ int tun_alloc() {
 
 	memset(&ifr, 0, sizeof(ifr));
 
-	ifr.ifr_flags = IFF_TUN;
+	ifr.ifr_flags = IFF_TUN|IFF_NO_PI;
 	if( (err = ioctl(fd, TUNSETIFF, (void *) &ifr)) < 0 ){
 		printf("ioctl error:%s\n",strerror(err));
 		close(fd);
@@ -37,44 +41,146 @@ int tun_alloc() {
 	}
 	return fd;
 }
-void refill_metadata(void *addr) {
-	struct ip_hdr *ip = (struct ip_hdr *)addr;
-	struct ip_hdr *retip = malloc(ip->len);
-	if (ip->proto == PROTO_TCP) {
-		struct uip_tcpip_hdr *tcp = (struct uip_tcpip_hdr *)addr;
-	} else if (ip->proto == PROTO_UDP) {
-		/* source/dst port */
-		/*      chksum     */
-		struct uip_udpip_hdr *udp = (struct uip_udpip_hdr *)addr;	
-		dbglog("receive data:%s\n", addr + sizeof(struct uip_udpip_hdr));
-		memset(addr + sizeof(struct uip_udpip_hdr), 97, udp->udplen);
+void swap_buf(void *src, void *dst, int len) {
+	int num = 0;
+	u8_t tmp;	
+	for(; num < len; num++) {
+		tmp = *(u8_t *)(src + num);
+		*(u8_t *)(src + num) = *(u8_t *)(dst + num);
+		*(u8_t *)(dst + num) = tmp;
 	}
 }
-void recal_esp(void *head) {
+int refill_packet(void *head,int len) {
+#if DEBUG
+	show_buf(head, len);
+#endif
+	struct espip_hdr *esp = head;
+	struct uip_udpip_hdr *packet = head + sizeof(struct espip_hdr);
 
-}
-int refill_packet(void *head) {
-	char *addr = NULL;
-	if (verifypacket(head) < 0) {
-		printf("receive broken packet\n");
+	decrypt(packet,len - sizeof(struct espip_hdr));
+	dbglog("decrypt %d bytes\n",len - sizeof(struct espip_hdr));
+#if DEBUG
+	show_buf(packet, len - sizeof(struct espip_hdr));
+#endif
+
+	unsigned short *addr = NULL;
+	if (verify_ip(packet) < 0) {
+		printf("receive broken ip packet\n");
 		return -1;
 	}
-	addr = decapsulate_esp(head);  //|IP|ESP|IP|TCP/UDP|metadata|end|
-	refill_metadata(addr);
-	recal_esp(head);
+	if(verify_udp(packet) < 0) {
+		printf("receive broken udp packet\n");
+		return -1;
+	}
+	printf("Receive from client, Text:\n");
+	play_buf(((void*)packet) + sizeof(struct uip_udpip_hdr), ntohs(packet->udplen) - 8);
+/*------------------------------------------------------------*/
+	memset(((void *)packet) + sizeof(struct uip_udpip_hdr), 'a', ntohs(packet->udplen) - 8);
+	swap_buf(&packet->srcport, &packet->destport, sizeof(u16_t));	
+	swap_buf(packet->srcipaddr, packet->destipaddr, 2 * sizeof(u16_t));
+	swap_buf(&esp->ip.srcipaddr, &esp->ip.destipaddr, 2 * sizeof(u16_t));
+	packet->udpchksum = 0;
+	packet->ipchksum = 0;
+
+	unsigned int sum = 0, length = 0;
+/*------------------------------------------------------------*/
+	struct pseudo_udphdr *pu;
+	pu = malloc(sizeof(struct pseudo_udphdr));
+	memcpy(pu->srcipaddr,packet->srcipaddr, 4);
+	memcpy(pu->destipaddr,packet->destipaddr, 4);
+	pu->pad = 0;
+	pu->proto = 17;
+	memcpy(&pu->udplen, &packet->udplen, sizeof(u16_t));
+
+	length = sizeof(struct pseudo_udphdr);
+	addr = (unsigned short *)pu;
+	while(length > 1) {
+		sum += *addr++;
+		length -= 2;
+	}
+	if (length) {
+		sum += *(unsigned char *)addr;
+	}
+	length = htons(packet->udplen);
+	addr = &packet->srcport;
+	while(length > 1) {
+		sum += *addr++;
+		length -= 2;
+	}
+	if (length) {
+		sum += *(unsigned char *)addr;
+	}
+
+	while (sum >> 16) {
+		sum = (sum >> 16) + (sum & 0xffff);
+	}
+	packet->udpchksum = (unsigned short)(~sum);
+/*------------------------------------------------------------*/
+
+	sum = 0;
+	addr = (unsigned short *)packet;
+	length = sizeof(struct ip_hdr);
+	while(length > 1) {
+		sum += *addr++;
+		length -= 2;
+	}
+	if (length) {
+		sum += *(unsigned char *)addr;
+	}
+
+	while (sum >> 16) {
+		sum = (sum >> 16) + (sum & 0xffff);
+	}
+	packet->ipchksum = (unsigned short)(~sum);
+/*------------------------------------------------------------*/
+
+	/* check transport IP checksum */
+	esp->ip.ipchksum = 0;
+	sum = 0;
+	addr = (unsigned short *)esp;
+	length = sizeof(struct ip_hdr);
+	while(length > 1) {
+		sum += *addr++;
+		length -= 2;
+	}
+	if (length) {
+		sum += *(unsigned char *)addr;
+	}
+
+	while (sum >> 16) {
+		sum = (sum >> 16) + (sum & 0xffff);
+	}
+	esp->ip.ipchksum = (unsigned short)(~sum);
+/*------------------------------------------------------------*/
+#if DEBUG
+	show_buf(head, len);
+#endif
+	return len;
 }
 
 int main() {
+	debuggerd_init();
 	char buff[1500];
-	int ret = 0, tunfd = 0;
+	int ret = 0, tunfd = 0, one = 1;
 	fd_set reads;
 	struct timeval tv;
 
 	tunfd = tun_alloc();
 	if (tunfd < 0) {
 		printf("open tun failed,exit\n");
-		exit(tunfd);
+		return tunfd;
 	}
+
+	sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP|IPPROTO_UDP|IPPROTO_ICMP);
+	if(sockfd < 0) {
+		printf("create socket failed:%s\n", strerror(sockfd));
+		return sockfd;
+	}
+	if(setsockopt(sockfd, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one)) < 0){
+		printf("setsockopt failed!\n");  
+		return -1; 
+	}
+
 	while(1) {
 		int status;
 
@@ -93,14 +199,26 @@ int main() {
 				if (ret <=0) {
 					printf("read from tun failed\n");
 					continue;
-				} else
-					dbglog("receive IP packet:%d bytes\n", ret);
-				ret = refill_packet(buff);
-				dbglog("refill IP packet:%d bytes\n", ret);
-				if (ret > 0) {
-					ret = write(tunfd, buff, ret);
-					dbglog("rebound to client :%d bytes\n", ret);
 				}
+
+				dbglog("receive IP packet:%d bytes\n", ret);
+
+				ret = refill_packet(buff + TUN_HEAD, ret - TUN_HEAD);
+				if(ret == -1)
+					continue;
+
+				dbglog("refill IP packet:%d bytes\n", ret);
+
+				ret = encrypt(buff + sizeof(struct espip_hdr), ret - sizeof(struct espip_hdr));
+				ret = ret + sizeof(struct espip_hdr);
+
+				struct sockaddr_in *server = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in));
+				server->sin_family = AF_INET;
+				// maybe this looks better:((struct espip_hdr*)buff)->ip.destipaddr
+				memcpy(&server->sin_addr.s_addr, buff + 16, 4);
+
+				sendto(sockfd, buff + TUN_HEAD, ret, 0,  (struct sockaddr*)server, sizeof(struct sockaddr));
+
 			}
 		} else {
 			dbglog("No data within %d seconds", DEF_INTERVAL);

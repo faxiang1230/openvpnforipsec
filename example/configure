@@ -1,0 +1,28 @@
+- 1.服务端环境配置:
+1.物理IP为10.0.0.161
+2.tun设备IP为192.168.1.1
+```
+ip addr add 192.168.1.1/24 dev tun0
+ifconfig tun0 up
+```
+3.设置iptables如下
+```
+iptables -t nat -A PREROUTING -p 50 -j DNAT --to-destination 192.168.1.2
+```
+
+- 2.客户端环境配置:
+1.物理IP为10.0.0.160
+2.tun设备IP为192.168.1.1
+```
+ip addr add 192.168.1.1/24 dev tun0
+ifconfig tun0 up
+```
+3.设置iptables如下
+```
+iptables -t nat -A PREROUTING -p 50 -j DNAT --to-destination 192.168.1.2
+```
+- 3.运行
+1.编译
+```
+make
+```
