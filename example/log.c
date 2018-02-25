@@ -12,11 +12,11 @@ void dbglog(const char *format, ...) {
 }
 void show_buf(void *addr, int len) {
     int num = 0;
-	dbglog("show buf: addr=%p  length=%d\n", addr, len);
+	printf("show buf: addr=%p  length=%d\n", addr, len);
     for(num = 0; num < len; num++) {
         printf("%02x ", ((unsigned char *)addr)[num]);
     }   
-    dbglog("\n");
+    printf("\n");
 }
 void play_buf(void *addr, int len) {
     int num = 0;
