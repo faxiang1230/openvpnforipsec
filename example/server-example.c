@@ -36,7 +36,7 @@ int main() {
 		if (ret > 0)
 			printf("recv from client:%s\n", r_data);
 		sprintf(&r_data[ret], " I'm Server\n");
-		ret = sendto(sockfd, r_data, 1500 , 0, (struct sockaddr*)&client, len);	
+		ret = sendto(sockfd, r_data, 128 , 0, (struct sockaddr*)&client, len);	
 		if (ret > 0)
 			printf("send to client:%s\n", r_data);
 		else {

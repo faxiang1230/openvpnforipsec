@@ -22,7 +22,7 @@ int main() {
 	memset(&client, 0, sizeof(struct sockaddr_in));
 	server->sin_family =AF_INET;
 	server->sin_port = htons(23456);
-	server->sin_addr.s_addr = inet_addr("10.8.0.161");
+	server->sin_addr.s_addr = inet_addr("10.0.0.160");
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if(sockfd < 0)
 		printf("create socket failed:%s\n", strerror(sockfd));

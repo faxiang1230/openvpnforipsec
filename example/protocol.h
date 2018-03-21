@@ -35,6 +35,7 @@
 
 /* 8bit protocol value,see /etc/protocols */
 #define PROTO_TCP 6
+#define PROTO_ICMP 1
 #define PROTO_UDP 17
 #define PROTO_ESP 50
 
@@ -103,6 +104,48 @@ struct pseudo_udphdr{
 	u8_t pad, proto;
 	u16_t udplen;
 };
+/* The TCP and IP headers. */
+struct uip_tcpip_hdr {
+#if UIP_CONF_IPV6
+  /* IPv6 header. */
+  u8_t vtc, 
+    tcflow;
+  u16_t flow;
+  u8_t len[2];
+  u8_t proto, ttl; 
+  uip_ip6addr_t srcipaddr, destipaddr;
+#else /* UIP_CONF_IPV6 */
+  /* IPv4 header. */
+  u8_t vhl, 
+    tos, 
+    len[2],
+    ipid[2],
+    ipoffset[2],
+    ttl, 
+    proto;
+  u16_t ipchksum;
+  u16_t srcipaddr[2],
+    destipaddr[2];
+#endif /* UIP_CONF_IPV6 */
+  
+  /* TCP header. */
+  u16_t srcport,
+    destport;
+  u8_t seqno[4],
+    ackno[4],
+    tcpoffset,
+    flags,
+    wnd[2];
+  u16_t tcpchksum;
+  u8_t urgp[2];
+  u8_t optdata[4];
+};
+struct pseudo_tcphdr{
+	u16_t srcipaddr[2],
+		destipaddr[2];
+	u8_t pad, proto;
+	u16_t tcplen;
+};
 /*
  *  Normal User Data
  * | IP header | TCP/UDP | Data |
@@ -117,6 +160,8 @@ int encapsulate_esp(void *header, int len);
 void *decapsulate_esp(void *header);
 void dump_udp(void *);
 unsigned short cal_cksum(unsigned short* head, int len);
+unsigned short cal_udpchksum(unsigned short *iphdr);
+unsigned short cal_tcpchksum(unsigned short *iphdr);
 int encrypt(void *addr, int len);
 int decrypt(void *addr, int len);
 

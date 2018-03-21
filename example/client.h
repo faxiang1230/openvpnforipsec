@@ -6,9 +6,14 @@
 #include "protocol.h"
 
 #define DEBUG 1
-
+#define CLIENTCONF "client-config"
+/*
+ * these DEFINE should moved to configure file
+ */
 #define TUN_PATH "/dev/net/tun"
-#define SERVER_IP "10.0.0.161"
+#define SERVER_IP "10.0.0.160"
+#define LOCAL_IP "10.0.0.161"
+#define IP_OFFSET "0.0.1.0"
 
 #define DISPATCH_NO_PACKET 0
 #define DISPATCH_USER_PACKET 1
@@ -42,7 +47,6 @@ static LIST_HEAD(ipsec_data_list);
 
 static int tunfd = 0,sockfd =0, recsockfd = 0;
 
-int tun_alloc(char *device);
 static void *readtun(void *arg __attribute__((unused)));
 static void *dispatch_packet(void *arg __attribute__((unused)));
 int parse_packet(struct list_head *list); 

@@ -1,2 +1,22 @@
+How to USE:
+It's easy to use the example,please configure 2 machines as following,one work as client,
+the other work as server.For example,you can setup an VM or two VMs which run linux OS.
+
+Copy the code to the client and server.
+
+1.1 Server
+	1.Please configure iptables rule for hold up all incoming esp data
+	# iptables -t nat -A PREROUTING -p esp -d 10.0.0.160 -j DNAT --to-destination 192.168.1.2
+	2.'make' and `# ./server-d`
+	3.setup Server's app server
+1.2 Client
+	1.Please configure iptables rule for hold up all data from user's data
+	# iptables -t nat -A OUTPUT ! -p esp -d 10.0.0.160 -j DNAT --to-destination 10.0.1.160
+	2.'make' and `# ./client-d`
+	3.try different apps
+
+Example Limit:
+	1.Don't support multi server
+	2.Don't support hold up user's data which itself communicate with ESP
+
 TODO:
-client encapsulate ESP packet and write via raw socket

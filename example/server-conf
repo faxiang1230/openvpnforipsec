@@ -1,0 +1,5 @@
+echo 1 > /proc/sys/net/ipv4/ip_forward
+ip addr add 192.168.1.1/24 dev tun0
+ifconfig tun0 up
+ifconfig tun0 mtu 1472
+route add default gw 192.168.1.1 netmask 0.0.0.0

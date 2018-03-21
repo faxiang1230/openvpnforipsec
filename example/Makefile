@@ -1,7 +1,7 @@
 CC:=gcc
 CFLAGS:=-g
 LDFLAGS:=-lpthread
-COMMON_FILES=log.c debugger.c protocol.c
+COMMON_FILES=log.c protocol.c tun.c
 
 all:client-d server-d example-c example-s
 
